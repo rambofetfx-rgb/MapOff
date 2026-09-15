@@ -5,22 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Mapeador de Blocos Offline</title>
   
-  <!-- Estilos do Leaflet e do App -->
+  <!-- Estilos Leaflet, Geocoder e App -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Barra do Topo -->
+  <!-- Barra Superior -->
   <div id="top-bar">
-    <button id="btn-download-area" class="btn-top">📥 Baixar Área Offline</button>
+    <button id="btn-toggle-panel" class="btn-top">📋 Lista de Pontos & Rotas</button>
+    <button id="btn-download-area" class="btn-top btn-success">📥 Baixar Área Offline</button>
     <span id="download-status"></span>
   </div>
 
   <!-- Container do Mapa -->
   <div id="map"></div>
 
-  <!-- Modal / Painel de Cadastro e Edição -->
+  <!-- Painel Lateral / Aba de Pontos e Rotas -->
+  <div id="side-panel" class="panel-hidden">
+    <div class="panel-header">
+      <h3>Pontos Salvos & Rotas</h3>
+      <button id="btn-close-panel">✖</button>
+    </div>
+    
+    <div class="panel-body">
+      <div id="route-info" class="route-box hidden">
+        <h4>Rota Selecionada</h4>
+        <p id="route-text">Selecione um ponto abaixo para traçar o caminho.</p>
+        <button id="btn-limpar-rota" class="btn-secondary btn-sm">Limpar Rota</button>
+      </div>
+
+      <h4>Locais Cadastrados</h4>
+      <ul id="lista-pontos">
+        <!-- Lista gerada dinamicamente via JS -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- Modal de Cadastro / Edição -->
   <div id="modal-container" class="hidden">
     <div class="modal-content">
       <h3 id="modal-title">Cadastrar Local</h3>
@@ -42,8 +65,9 @@
     </div>
   </div>
 
-  <!-- Scripts do Leaflet e do App -->
+  <!-- Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
