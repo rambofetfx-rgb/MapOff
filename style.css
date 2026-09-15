@@ -2,13 +2,13 @@
   --primary: #0066ff;
   --primary-dark: #004ecc;
   --success: #10b981;
+  --warning: #f59e0b;
   --danger: #ef4444;
-  --bg-main: #f8fafc;
   --surface: #ffffff;
   --text: #1e293b;
   --text-muted: #64748b;
   --border: #e2e8f0;
-  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
   --radius: 12px;
 }
 
@@ -33,7 +33,7 @@ body, html {
   z-index: 1;
 }
 
-/* Barra de Busca Profissional */
+/* Barra de Busca */
 #search-box {
   position: absolute;
   top: 12px;
@@ -88,11 +88,39 @@ body, html {
   cursor: pointer;
 }
 
-.dropdown-list li:hover {
-  background: #f1f5f9;
+.dropdown-list li:hover { background: #f1f5f9; }
+
+/* Banner de Medição A -> B */
+.measure-banner {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 24px;
+  font-size: 13px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
 }
 
-/* Positionamento das Controles Leaflet Zoom */
+.btn-sm-danger {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Controles Leaflet Zoom */
 .leaflet-top.leaflet-left {
   top: 70px !important;
 }
@@ -105,14 +133,15 @@ body, html {
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .fab-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 18px;
+  padding: 10px 16px;
   border: none;
   border-radius: 30px;
   font-weight: 600;
@@ -124,8 +153,10 @@ body, html {
 
 .fab-btn.primary { background: var(--primary); }
 .fab-btn.success { background: var(--success); }
+.fab-btn.warning-btn { background: var(--warning); }
+.fab-btn.location-btn { background: #0f172a; }
 
-/* Toasts / Notificações */
+/* Toast */
 .toast {
   position: absolute;
   top: 74px;
@@ -141,25 +172,22 @@ body, html {
   box-shadow: var(--shadow);
 }
 
-/* Painel Lateral (Drawer) */
+/* Drawer Lateral */
 #side-panel {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   width: 340px;
   max-width: 85vw;
   height: 100vh;
   background: var(--surface);
   z-index: 2000;
   box-shadow: var(--shadow);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s ease;
   display: flex;
   flex-direction: column;
 }
 
-#side-panel.panel-hidden {
-  transform: translateX(-100%);
-}
+#side-panel.panel-hidden { transform: translateX(-100%); }
 
 .panel-header {
   padding: 20px;
@@ -170,12 +198,7 @@ body, html {
 }
 
 .panel-header h2 { font-size: 18px; color: var(--text); }
-
-.panel-body {
-  padding: 16px;
-  overflow-y: auto;
-  flex: 1;
-}
+.panel-body { padding: 16px; overflow-y: auto; flex: 1; }
 
 .card {
   background: #f8fafc;
@@ -190,13 +213,7 @@ body, html {
 .badge { background: #e0e7ff; color: var(--primary); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
 .btn-link { background: transparent; border: none; color: var(--danger); font-size: 12px; cursor: pointer; font-weight: 600; }
 
-.section-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
+.section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .counter { background: #e2e8f0; color: var(--text); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
 
 .item-list { list-style: none; }
@@ -216,7 +233,7 @@ body, html {
 .ponto-desc { font-size: 12px; color: var(--text-muted); }
 .item-actions { display: flex; gap: 8px; margin-top: 6px; }
 
-/* Modal Styles */
+/* Modal */
 .modal-backdrop {
   position: fixed;
   top: 0; left: 0;
