@@ -1,226 +1,296 @@
+// Registra Service Worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch((err) => console.log('SW Error:', err));
+  navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Error:', err));
 }
 
-// 1. Inicializa o Mapa
-const map = L.map('map').setView([-27.5954, -48.5480], 16);
+// 1. Inicialização do Mapa
+const map = L.map('map', { zoomControl: true }).setView([-27.5954, -48.5480], 15);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
-setTimeout(() => { map.invalidateSize(); }, 300);
+setTimeout(() => map.invalidateSize(), 300);
 
-// 2. Adiciona Campo de Busca de Endereços
-L.Control.geocoder({
-  defaultMarkGeocode: false,
-  placeholder: "Buscar endereço..."
-})
-.on('markgeocode', function(e) {
-  const bbox = e.geocode.bbox;
-  const poly = L.polygon([
-    bbox.getSouthEast(),
-    bbox.getNorthEast(),
-    bbox.getNorthWest(),
-    bbox.getSouthWest()
-  ]);
-  map.fitBounds(poly.getBounds());
-  L.marker(e.geocode.center).addTo(map).bindPopup(e.geocode.name).openPopup();
-})
-.addTo(map);
+// 2. Variáveis de Estado Global
+let pontosSalvos = JSON.parse(localStorage.getItem('blocos_mapeados') || '[]');
+let posicaoGPS = null;
+let marcadorGPS = null;
+let circuloPrecisao = null;
+let marcadorBusca = null;
+let linhaRota = null;
+let pontoEdicaoId = null;
+let coordsTemp = null;
 
-// 3. Monitoramento do GPS e Posição Atual
-let meuMarcadorGPS = null;
-let minhaCirculoPrecisao = null;
-let posicaoAtualGPS = null;
-
+// 3. Sistema de Geolocalização Contínua (GPS em Tempo Real)
 if ('geolocation' in navigator) {
   navigator.geolocation.watchPosition(
     (pos) => {
       const { latitude, longitude, accuracy } = pos.coords;
-      posicaoAtualGPS = [latitude, longitude];
+      posicaoGPS = [latitude, longitude];
 
-      if (meuMarcadorGPS) {
-        meuMarcadorGPS.setLatLng(posicaoAtualGPS);
-        minhaCirculoPrecisao.setLatLng(posicaoAtualGPS);
-        minhaCirculoPrecisao.setRadius(accuracy);
+      if (marcadorGPS) {
+        marcadorGPS.setLatLng(posicaoGPS);
+        circuloPrecisao.setLatLng(posicaoGPS).setRadius(accuracy);
       } else {
-        meuMarcadorGPS = L.marker(posicaoAtualGPS, {
+        marcadorGPS = L.marker(posicaoGPS, {
           icon: L.divIcon({
-            className: 'user-location-icon',
-            html: '<div style="background:#007bff; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.4);"></div>',
+            className: 'user-marker',
+            html: '<div style="background:#0066ff; width:18px; height:18px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3);"></div>',
             iconSize: [20, 20],
             iconAnchor: [10, 10]
           })
         }).addTo(map);
 
-        minhaCirculoPrecisao = L.circle(posicaoAtualGPS, {
+        circuloPrecisao = L.circle(posicaoGPS, {
           radius: accuracy,
-          color: '#007bff',
-          fillColor: '#007bff',
-          fillOpacity: 0.15,
+          color: '#0066ff',
+          fillColor: '#0066ff',
+          fillOpacity: 0.12,
           weight: 1
         }).addTo(map);
 
-        map.setView(posicaoAtualGPS, 18);
+        map.setView(posicaoGPS, 17);
       }
-      atualizarListaAba();
+
+      atualizarInterface();
+      if (linhaRota) atualizarDistanciaRota();
     },
-    (err) => console.warn("GPS sem sinal..."),
+    (err) => console.warn('Aguardando GPS...'),
     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
   );
 }
 
-// 4. Mapeamento, Armazenamento e Linhas de Rota
-let pontosSalvos = JSON.parse(localStorage.getItem('blocos_mapeados') || '[]');
-let linhaRotaAtual = null;
+// 4. Busca Unificada (Online e Offline nos Pontos Salvos)
+const searchInput = document.getElementById('search-input');
+const searchResults = document.getElementById('search-results');
 
-function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Raio da Terra em metros
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+searchInput.addEventListener('input', async () => {
+  const query = searchInput.value.trim().toLowerCase();
+  if (!query) return searchResults.classList.add('hidden');
 
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ/2) * Math.sin(Δλ/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  searchResults.innerHTML = '';
 
-  return Math.round(R * c); // Retorna em metros
+  // 4a. Busca em locais salvos (Offline)
+  const locaisLocais = pontosSalvos.filter(p => p.bloco.toLowerCase().includes(query) || (p.apt && p.apt.toLowerCase().includes(query)));
+  
+  locaisLocais.forEach(p => {
+    const li = document.createElement('li');
+    li.innerHTML = `📌 <b>${p.bloco}</b> ${p.apt ? `- Apt ${p.apt}` : ''} <span style="font-size:10px; color:#10b981;">(Salvo)</span>`;
+    li.onclick = () => {
+      map.setView([p.lat, p.lng], 18);
+      searchResults.classList.add('hidden');
+    };
+    searchResults.appendChild(li);
+  });
+
+  // 4b. Busca via Nominatim (Online)
+  if (navigator.onLine && query.length > 3) {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+
+      data.slice(0, 4).forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `🌐 ${item.display_name}`;
+        li.onclick = () => selecionarLocalOnline(item);
+        searchResults.appendChild(li);
+      });
+    } catch (e) {}
+  }
+
+  searchResults.classList.remove('hidden');
+});
+
+function selecionarLocalOnline(item) {
+  const lat = parseFloat(item.lat);
+  const lon = parseFloat(item.lon);
+
+  searchResults.classList.add('hidden');
+  map.setView([lat, lon], 17);
+
+  if (marcadorBusca) map.removeLayer(marcadorBusca);
+
+  marcadorBusca = L.marker([lat, lon]).addTo(map);
+  const popupContent = document.createElement('div');
+  popupContent.innerHTML = `
+    <div style="font-size:13px; font-weight:bold; margin-bottom:4px;">${item.display_name.split(',')[0]}</div>
+    <button id="btn-salvar-busca" style="width:100%; background:#10b981; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">📌 Salvar Ponto Aqui</button>
+  `;
+
+  marcadorBusca.bindPopup(popupContent).openPopup();
+
+  setTimeout(() => {
+    const btn = document.getElementById('btn-salvar-busca');
+    if (btn) btn.onclick = () => abrirModal(lat, lon, item.display_name.split(',')[0]);
+  }, 100);
 }
 
+// 5. Cálculos de Distância e Rotas
+function calcularDistancia(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+let destinoAtual = null;
+
+function tracarRota(destLat, destLng, nome) {
+  if (!posicaoGPS) return alert("Aguardando sinal do GPS...");
+
+  destinoAtual = { lat: destLat, lng: destLng, nome };
+
+  if (linhaRota) map.removeLayer(linhaRota);
+
+  linhaRota = L.polyline([posicaoGPS, [destLat, destLng]], {
+    color: '#0066ff',
+    weight: 5,
+    dashArray: '8, 8'
+  }).addTo(map);
+
+  document.getElementById('route-info').classList.remove('hidden');
+  document.getElementById('route-title').innerText = `Destino: ${nome}`;
+  atualizarDistanciaRota();
+
+  map.fitBounds(linhaRota.getBounds(), { padding: [40, 40] });
+  fecharPainel();
+}
+
+function atualizarDistanciaRota() {
+  if (!destinoAtual || !posicaoGPS) return;
+  const dist = calcularDistancia(posicaoGPS[0], posicaoGPS[1], destinoAtual.lat, destinoAtual.lng);
+  document.getElementById('route-distance').innerText = `Distância aproximada: ${dist} metros`;
+}
+
+document.getElementById('btn-limpar-rota').onclick = () => {
+  if (linhaRota) map.removeLayer(linhaRota);
+  linhaRota = null;
+  destinoAtual = null;
+  document.getElementById('route-info').classList.add('hidden');
+};
+
+// 6. Gerenciamento de Marcadores e UI
 function renderizarMarcadores() {
+  map.eachLayer(layer => {
+    if (layer instanceof L.Marker && layer !== marcadorGPS && layer !== marcadorBusca) {
+      map.removeLayer(layer);
+    }
+  });
+
   pontosSalvos.forEach(ponto => {
     const marker = L.marker([ponto.lat, ponto.lng]).addTo(map);
     marker.bindPopup(`
-      <b>Bloco ${ponto.bloco}</b><br>
-      Apt: ${ponto.apt || 'N/A'}<br>
-      <button onclick="tracarRotaAte(${ponto.lat}, ${ponto.lng}, 'Bloco ${ponto.bloco}')" style="margin-top:6px; background:#28a745; color:white; border:none; padding:4px 8px; border-radius:4px;">🗺️ Ir até aqui</button>
+      <b style="font-size:14px; color:#0066ff;">${ponto.bloco}</b><br>
+      ${ponto.apt ? `Apt: ${ponto.apt}<br>` : ''}
+      ${ponto.desc ? `<p style="font-size:11px; color:#666; margin:4px 0;">${ponto.desc}</p>` : ''}
+      <button onclick="tracarRota(${ponto.lat}, ${ponto.lng}, '${ponto.bloco}')" style="width:100%; margin-top:6px; background:#0066ff; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">🗺️ Traçar Rota</button>
     `);
   });
+
+  document.getElementById('ponto-count').innerText = pontosSalvos.length;
 }
 
-function tracarRotaAte(destLat, destLng, nomeDestino) {
-  if (!posicaoAtualGPS) {
-    alert("Aguardando sinal do GPS para traçar a rota...");
-    return;
-  }
-
-  if (linhaRotaAtual) map.removeLayer(linhaRotaAtual);
-
-  // Desenha a linha de rota (pode ser substituído por rotas do OSRM se online)
-  linhaRotaAtual = L.polyline([posicaoAtualGPS, [destLat, destLng]], {
-    color: '#007bff',
-    weight: 5,
-    opacity: 0.8,
-    dashArray: '10, 10'
-  }).addTo(map);
-
-  const distMetros = calcularDistanciaMetros(posicaoAtualGPS[0], posicaoAtualGPS[1], destLat, destLng);
-  
-  document.getElementById('route-info').classList.remove('hidden');
-  document.getElementById('route-text').innerText = `Destino: ${nomeDestino}\nDistância: ${distMetros} metros`;
-
-  map.fitBounds(linhaRotaAtual.getBounds(), { padding: [50, 50] });
-}
-
-document.getElementById('btn-limpar-rota').addEventListener('click', () => {
-  if (linhaRotaAtual) map.removeLayer(linhaRotaAtual);
-  document.getElementById('route-info').classList.add('hidden');
-});
-
-// 5. Gerenciamento do Painel Lateral / Aba de Pontos
-const sidePanel = document.getElementById('side-panel');
-document.getElementById('btn-toggle-panel').addEventListener('click', () => sidePanel.classList.remove('panel-hidden'));
-document.getElementById('btn-close-panel').addEventListener('click', () => sidePanel.classList.add('panel-hidden'));
-
-function atualizarListaAba() {
+function atualizarInterface() {
   const listaEl = document.getElementById('lista-pontos');
   listaEl.innerHTML = '';
 
-  // Ordena os pontos pelo mais próximo de você
-  let pontosComDistancia = pontosSalvos.map(p => {
-    let dist = posicaoAtualGPS 
-      ? calcularDistanciaMetros(posicaoAtualGPS[0], posicaoAtualGPS[1], p.lat, p.lng)
-      : null;
-    return { ...p, dist };
-  });
+  let listaComDist = pontosSalvos.map(p => ({
+    ...p,
+    dist: posicaoGPS ? calcularDistancia(posicaoGPS[0], posicaoGPS[1], p.lat, p.lng) : null
+  }));
 
-  if (posicaoAtualGPS) {
-    pontosComDistancia.sort((a, b) => a.dist - b.dist);
-  }
+  if (posicaoGPS) listaComDist.sort((a, b) => a.dist - b.dist);
 
-  pontosComDistancia.forEach(p => {
+  listaComDist.forEach(p => {
     const li = document.createElement('li');
     li.innerHTML = `
-      <span class="ponto-item-title">Bloco ${p.bloco} - Apt ${p.apt || 'N/A'}</span>
-      <span class="ponto-item-dist">${p.dist !== null ? `📍 A ${p.dist}m de você` : 'Sem GPS'}</span>
-      <div class="ponto-actions">
-        <button class="btn-primary btn-sm" onclick="tracarRotaAte(${p.lat}, ${p.lng}, 'Bloco ${p.bloco}')">Ir Até</button>
-        <button class="btn-secondary btn-sm" onclick="focarNoPonto(${p.lat}, ${p.lng})">Ver no Mapa</button>
+      <div class="ponto-title">${p.bloco} ${p.apt ? `- Apt ${p.apt}` : ''}</div>
+      <div class="ponto-dist">${p.dist !== null ? `📍 A ${p.dist}m de você` : 'Sem GPS'}</div>
+      ${p.desc ? `<div class="ponto-desc">${p.desc}</div>` : ''}
+      <div class="item-actions">
+        <button class="btn btn-primary" style="padding:6px; font-size:12px;" onclick="tracarRota(${p.lat}, ${p.lng}, '${p.bloco}')">Ir Até</button>
+        <button class="btn" style="background:#e2e8f0; padding:6px; font-size:12px;" onclick="focarPonto(${p.lat}, ${p.lng})">Ver</button>
       </div>
     `;
     listaEl.appendChild(li);
   });
 }
 
-function focarNoPonto(lat, lng) {
+function focarPonto(lat, lng) {
   map.setView([lat, lng], 18);
-  sidePanel.classList.add('panel-hidden');
+  fecharPainel();
 }
 
-// 6. Modal & Cadastro de Blocos
+// 7. Modal de Cadastro / Edição
 const modal = document.getElementById('modal-container');
-let coordsSelecionadas = null;
 
-map.on('click', function(e) {
-  coordsSelecionadas = e.latlng;
-  document.getElementById('modal-title').innerText = "Cadastrar Novo Bloco";
-  document.getElementById('input-bloco').value = '';
+map.on('click', (e) => abrirModal(e.latlng.lat, e.latlng.lng));
+
+function abrirModal(lat, lng, nomeSugestao = '') {
+  coordsTemp = { lat, lng };
+  pontoEdicaoId = null;
+
+  document.getElementById('modal-title').innerText = "Cadastrar Local";
+  document.getElementById('input-bloco').value = nomeSugestao;
   document.getElementById('input-apt').value = '';
   document.getElementById('input-desc').value = '';
-  modal.classList.remove('hidden');
-});
+  document.getElementById('btn-excluir').classList.add('hidden');
 
-document.getElementById('btn-salvar').addEventListener('click', () => {
+  modal.classList.remove('hidden');
+}
+
+document.getElementById('btn-salvar').onclick = () => {
   const bloco = document.getElementById('input-bloco').value.trim();
-  if (!bloco) return alert("Informe o Bloco!");
+  if (!bloco) return alert("Informe ao menos o nome ou bloco!");
 
   pontosSalvos.push({
     id: Date.now(),
-    lat: coordsSelecionadas.lat,
-    lng: coordsSelecionadas.lng,
+    lat: coordsTemp.lat,
+    lng: coordsTemp.lng,
     bloco,
-    apt: document.getElementById('input-apt').value,
-    desc: document.getElementById('input-desc').value
+    apt: document.getElementById('input-apt').value.trim(),
+    desc: document.getElementById('input-desc').value.trim()
   });
 
   localStorage.setItem('blocos_mapeados', JSON.stringify(pontosSalvos));
   modal.classList.add('hidden');
-  location.reload(); // Recarrega para atualizar mapa e lista
-});
+  if (marcadorBusca) map.removeLayer(marcadorBusca);
 
-document.getElementById('btn-cancelar').addEventListener('click', () => modal.classList.add('hidden'));
+  renderizarMarcadores();
+  atualizarInterface();
+};
 
-// 7. Lógica de Download da Área Offline
-document.getElementById('btn-download-area').addEventListener('click', async () => {
+document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
+
+// 8. Drawer Lateral
+const panel = document.getElementById('side-panel');
+document.getElementById('btn-toggle-panel').onclick = () => panel.classList.remove('panel-hidden');
+document.getElementById('btn-close-panel').onclick = fecharPainel;
+function fecharPainel() { panel.classList.add('panel-hidden'); }
+
+// 9. Modulo de Download Offline
+document.getElementById('btn-download-area').onclick = async () => {
   const bounds = map.getBounds();
-  const currentZoom = map.getZoom();
-  const statusText = document.getElementById('download-status');
-  statusText.innerText = "Baixando...";
+  const zoom = map.getZoom();
+  const toast = document.getElementById('download-toast');
+  const status = document.getElementById('download-status');
 
-  const minZoom = Math.max(currentZoom - 1, 14);
-  const maxZoom = Math.min(currentZoom + 2, 18);
+  toast.classList.remove('hidden');
+  status.innerText = "Iniciando download...";
+
   let urls = [];
+  for (let z = Math.max(zoom - 1, 14); z <= Math.min(zoom + 2, 18); z++) {
+    const min = latLngToTile(bounds.getSouth(), bounds.getWest(), z);
+    const max = latLngToTile(bounds.getNorth(), bounds.getEast(), z);
 
-  for (let z = minZoom; z <= maxZoom; z++) {
-    const minTile = latLngToTile(bounds.getSouth(), bounds.getWest(), z);
-    const maxTile = latLngToTile(bounds.getNorth(), bounds.getEast(), z);
-
-    for (let x = Math.min(minTile.x, maxTile.x); x <= Math.max(minTile.x, maxTile.x); x++) {
-      for (let y = Math.min(minTile.y, maxTile.y); y <= Math.max(minTile.y, maxTile.y); y++) {
+    for (let x = Math.min(min.x, max.x); x <= Math.max(min.x, max.x); x++) {
+      for (let y = Math.min(min.y, max.y); y <= Math.max(min.y, max.y); y++) {
         urls.push(`https://tile.openstreetmap.org/${z}/${x}/${y}.png`);
       }
     }
@@ -233,13 +303,13 @@ document.getElementById('btn-download-area').addEventListener('click', async () 
     try {
       await cache.add(url);
       baixados++;
-      statusText.innerText = `Baixando: ${Math.round((baixados / urls.length) * 100)}%`;
+      status.innerText = `Baixando área: ${Math.round((baixados / urls.length) * 100)}%`;
     } catch (e) {}
   }
 
-  statusText.innerText = "Área salva! ✅";
-  setTimeout(() => statusText.innerText = "", 3000);
-});
+  status.innerText = "Área salva offline! ✅";
+  setTimeout(() => toast.classList.add('hidden'), 3000);
+};
 
 function latLngToTile(lat, lng, zoom) {
   const latRad = (lat * Math.PI) / 180;
@@ -250,6 +320,6 @@ function latLngToTile(lat, lng, zoom) {
   };
 }
 
-// Inicializações
+// Inicializar Dados
 renderizarMarcadores();
-atualizarListaAba();
+atualizarInterface();
