@@ -3,71 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mapeador de Blocos Offline</title>
+  <title>MapOff - Navegação & Mapeamento Offline</title>
   
-  <!-- Estilos Leaflet, Geocoder e App -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Barra Superior -->
-  <div id="top-bar">
-    <button id="btn-toggle-panel" class="btn-top">📋 Lista de Pontos & Rotas</button>
-    <button id="btn-download-area" class="btn-top btn-success">📥 Baixar Área Offline</button>
-    <span id="download-status"></span>
+  <!-- Barra Superior de Busca Inteligente -->
+  <div id="search-box">
+    <div class="search-input-group">
+      <input type="text" id="search-input" placeholder="Buscar endereço ou bloco salvo..." autocomplete="off">
+      <button id="btn-search" aria-label="Buscar">🔍</button>
+    </div>
+    <ul id="search-results" class="dropdown-list hidden"></ul>
+  </div>
+
+  <!-- Botoes Flutuantes de Ação (FABs) -->
+  <div id="fab-actions">
+    <button id="btn-toggle-panel" class="fab-btn primary">
+      <span>📋</span> Lista & Rotas
+    </button>
+    <button id="btn-download-area" class="fab-btn success">
+      <span>📥</span> Baixar Offline
+    </button>
+  </div>
+
+  <!-- Indicador de Status do Download -->
+  <div id="download-toast" class="toast hidden">
+    <span id="download-status">Baixando dados do mapa...</span>
   </div>
 
   <!-- Container do Mapa -->
   <div id="map"></div>
 
-  <!-- Painel Lateral / Aba de Pontos e Rotas -->
-  <div id="side-panel" class="panel-hidden">
+  <!-- Drawer Lateral (Painel de Rotas e Locais) -->
+  <aside id="side-panel" class="panel-hidden">
     <div class="panel-header">
-      <h3>Pontos Salvos & Rotas</h3>
-      <button id="btn-close-panel">✖</button>
+      <h2>Pontos & Rotas</h2>
+      <button id="btn-close-panel" class="btn-icon">✕</button>
     </div>
     
     <div class="panel-body">
-      <div id="route-info" class="route-box hidden">
-        <h4>Rota Selecionada</h4>
-        <p id="route-text">Selecione um ponto abaixo para traçar o caminho.</p>
-        <button id="btn-limpar-rota" class="btn-secondary btn-sm">Limpar Rota</button>
+      <!-- Painel de Rota Ativa -->
+      <div id="route-info" class="card route-card hidden">
+        <div class="card-header">
+          <span class="badge">Rota Em Andamento</span>
+          <button id="btn-limpar-rota" class="btn-link">Cancelar</button>
+        </div>
+        <h3 id="route-title">Destino: -</h3>
+        <p id="route-distance">Distância aproximada: --</p>
       </div>
 
-      <h4>Locais Cadastrados</h4>
-      <ul id="lista-pontos">
-        <!-- Lista gerada dinamicamente via JS -->
-      </ul>
+      <div class="section-title">
+        <h3>Locais Salvos</h3>
+        <span id="ponto-count" class="counter">0</span>
+      </div>
+
+      <ul id="lista-pontos" class="item-list"></ul>
+    </div>
+  </aside>
+
+  <!-- Modal / Dialog de Cadastro e Edição -->
+  <div id="modal-container" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Novo Local</h3>
+        <button id="btn-close-modal" class="btn-icon">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="input-bloco">Identificação / Bloco *</label>
+          <input type="text" id="input-bloco" placeholder="Ex: Bloco B ou Entrada Principal">
+        </div>
+
+        <div class="form-group">
+          <label for="input-apt">Apartamento / Unidade</label>
+          <input type="text" id="input-apt" placeholder="Ex: Apt 302 (Opcional)">
+        </div>
+
+        <div class="form-group">
+          <label for="input-desc">Observação / Ponto de Referência</label>
+          <textarea id="input-desc" rows="3" placeholder="Ex: Portão azul, fundos, etc."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-salvar" class="btn btn-primary">Salvar Local</button>
+        <button id="btn-excluir" class="btn btn-danger hidden">Excluir</button>
+      </div>
     </div>
   </div>
 
-  <!-- Modal de Cadastro / Edição -->
-  <div id="modal-container" class="hidden">
-    <div class="modal-content">
-      <h3 id="modal-title">Cadastrar Local</h3>
-      
-      <label>Bloco / Letra:</label>
-      <input type="text" id="input-bloco" placeholder="Ex: Bloco A">
-
-      <label>Apartamento / Unidade:</label>
-      <input type="text" id="input-apt" placeholder="Ex: Apt 102">
-
-      <label>Observação / Descrição:</label>
-      <textarea id="input-desc" rows="3" placeholder="Detalhes da entrada, portão, etc."></textarea>
-
-      <div class="modal-buttons">
-        <button id="btn-salvar" class="btn-primary">Salvar</button>
-        <button id="btn-excluir" class="btn-danger hidden">Excluir</button>
-        <button id="btn-cancelar" class="btn-secondary">Cancelar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
