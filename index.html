@@ -3,21 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mapeador de Blocos</title>
+  <title>Mapeador de Blocos Offline</title>
   
-  <!-- CSS Leaflet -->
+  <!-- Estilos do Leaflet e do App -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <div id="controls">
-    <span id="status">📍 Tocante no mapa para marcar</span>
+  <!-- Barra do Topo -->
+  <div id="top-bar">
+    <button id="btn-download-area" class="btn-top">📥 Baixar Área Offline</button>
+    <span id="download-status"></span>
   </div>
 
+  <!-- Container do Mapa -->
   <div id="map"></div>
 
-  <!-- JS Leaflet -->
+  <!-- Modal / Painel de Cadastro e Edição -->
+  <div id="modal-container" class="hidden">
+    <div class="modal-content">
+      <h3 id="modal-title">Cadastrar Local</h3>
+      
+      <label>Bloco / Letra:</label>
+      <input type="text" id="input-bloco" placeholder="Ex: Bloco A">
+
+      <label>Apartamento / Unidade:</label>
+      <input type="text" id="input-apt" placeholder="Ex: Apt 102">
+
+      <label>Observação / Descrição:</label>
+      <textarea id="input-desc" rows="3" placeholder="Detalhes da entrada, portão, etc."></textarea>
+
+      <div class="modal-buttons">
+        <button id="btn-salvar" class="btn-primary">Salvar</button>
+        <button id="btn-excluir" class="btn-danger hidden">Excluir</button>
+        <button id="btn-cancelar" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts do Leaflet e do App -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
 </body>
