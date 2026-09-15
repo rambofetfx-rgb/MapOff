@@ -1,4 +1,4 @@
-name: Build Android APK
+Name: Build Android APK
 
 on:
   push:
@@ -31,16 +31,29 @@ jobs:
           mkdir -p www
           cp index.html style.css app.js sw.js www/ 2>/dev/null || cp index.html style.css app.js www/
 
-          # 2. Inicializa o projeto Node e instala o Capacitor
+          # 2. Inicializa o projeto Node e instala o Capacitor + Plugin de Geolocation
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/geolocation
 
-          # 3. Configura o Capacitor apontando para a pasta www
+          # 3. Configura o Capacitor e gera a plataforma Android
           npx cap init "Mapeador Offline" "com.mapeador.app" --web-dir www
           npx cap add android
           npx cap copy android
 
-          # 4. Compila o APK do Android
+          # 4. Injeta permissões de GPS, Câmera e Arquivos no AndroidManifest.xml
+          MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
+          
+          PERMISSIONS="
+              <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" \/>\n\
+              <uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" \/>\n\
+              <uses-permission android:name=\"android.permission.CAMERA\" \/>\n\
+              <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" \/>\n\
+              <uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" \/>\n\
+              <uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" \/>"
+
+          sed -i "/<\/manifest>/i $PERMISSIONS" $MANIFEST_FILE
+
+          # 5. Compila o APK do Android
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
