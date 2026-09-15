@@ -1,15 +1,30 @@
+:root {
+  --primary: #0066ff;
+  --primary-dark: #004ecc;
+  --success: #10b981;
+  --danger: #ef4444;
+  --bg-main: #f8fafc;
+  --surface: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius: 12px;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+body, html {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #e5e3df;
+  background-color: #e2e8f0;
 }
 
 #map {
@@ -18,51 +33,126 @@ html, body {
   z-index: 1;
 }
 
-/* Barra do Topo */
-#top-bar {
+/* Barra de Busca Profissional */
+#search-box {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  max-width: 420px;
+  z-index: 1000;
+}
+
+.search-input-group {
+  display: flex;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+#search-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--text);
+}
+
+#btn-search {
+  background: transparent;
+  border: none;
+  padding: 0 16px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.dropdown-list {
+  list-style: none;
+  background: var(--surface);
+  margin-top: 6px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.dropdown-list li {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.dropdown-list li:hover {
+  background: #f1f5f9;
+}
+
+/* Positionamento das Controles Leaflet Zoom */
+.leaflet-top.leaflet-left {
+  top: 70px !important;
+}
+
+/* Botões Flutuantes (FABs) */
+#fab-actions {
+  position: absolute;
+  bottom: 24px;
+  right: 16px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  gap: 10px;
 }
 
-.btn-top {
-  background: #007bff;
-  color: white;
+.fab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
   border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-weight: bold;
+  border-radius: 30px;
+  font-weight: 600;
   font-size: 13px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
-
-.btn-success { background: #28a745; }
-
-#download-status {
-  background: rgba(0, 0, 0, 0.75);
   color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
 }
 
-/* Painel Lateral / Aba de Rotas */
+.fab-btn.primary { background: var(--primary); }
+.fab-btn.success { background: var(--success); }
+
+/* Toasts / Notificações */
+.toast {
+  position: absolute;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 1000;
+  box-shadow: var(--shadow);
+}
+
+/* Painel Lateral (Drawer) */
 #side-panel {
   position: fixed;
   top: 0;
   left: 0;
-  width: 320px;
+  width: 340px;
   max-width: 85vw;
   height: 100vh;
-  background: white;
+  background: var(--surface);
   z-index: 2000;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.3);
-  transition: transform 0.3s ease;
+  box-shadow: var(--shadow);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
 }
@@ -72,20 +162,14 @@ html, body {
 }
 
 .panel-header {
-  padding: 16px;
-  background: #007bff;
-  color: white;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.panel-header button {
-  background: transparent;
-  border: none;
-  color: white;
-  font-size: 18px;
-}
+.panel-header h2 { font-size: 18px; color: var(--text); }
 
 .panel-body {
   padding: 16px;
@@ -93,76 +177,85 @@ html, body {
   flex: 1;
 }
 
-.route-box {
-  background: #e9ecef;
-  padding: 12px;
-  border-radius: 8px;
+.card {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
   margin-bottom: 16px;
-  border-left: 4px solid #007bff;
 }
 
-.route-box h4 { margin-bottom: 4px; color: #333; }
-.route-box p { font-size: 13px; color: #555; margin-bottom: 8px; }
+.route-card { border-left: 4px solid var(--primary); }
+.card-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.badge { background: #e0e7ff; color: var(--primary); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+.btn-link { background: transparent; border: none; color: var(--danger); font-size: 12px; cursor: pointer; font-weight: 600; }
 
-#lista-pontos {
-  list-style: none;
-  margin-top: 10px;
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-#lista-pontos li {
-  background: #f8f9fa;
-  border: 1px solid #ddd;
-  padding: 10px;
-  border-radius: 6px;
-  margin-bottom: 8px;
+.counter { background: #e2e8f0; color: var(--text); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+
+.item-list { list-style: none; }
+.item-list li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.ponto-item-title { font-weight: bold; color: #007bff; }
-.ponto-item-dist { font-size: 12px; color: #28a745; font-weight: bold; }
-.ponto-actions { display: flex; gap: 6px; margin-top: 4px; }
-.btn-sm { padding: 4px 8px; font-size: 12px; }
+.ponto-title { font-weight: 700; color: var(--text); font-size: 14px; }
+.ponto-dist { font-size: 12px; color: var(--success); font-weight: 600; }
+.ponto-desc { font-size: 12px; color: var(--text-muted); }
+.item-actions { display: flex; gap: 8px; margin-top: 6px; }
 
-/* Modal de Cadastro */
-#modal-container {
+/* Modal Styles */
+.modal-backdrop {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.5);
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
   z-index: 3000;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 16px;
 }
 
-#modal-container.hidden { display: none; }
-
-.modal-content {
-  background: white;
+.modal-card {
+  background: var(--surface);
   width: 100%;
-  max-width: 360px;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  max-width: 380px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.modal-content label { display: block; font-size: 12px; font-weight: bold; margin-top: 8px; color: #555; }
-.modal-content input, .modal-content textarea { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
-.modal-buttons { display: flex; gap: 8px; margin-top: 16px; }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+.modal-body { padding: 20px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+.form-group input, .form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
 
-button { cursor: pointer; border: none; border-radius: 6px; font-weight: bold; }
-.btn-primary { background: #007bff; color: white; flex: 1; padding: 10px; }
-.btn-danger { background: #dc3545; color: white; flex: 1; padding: 10px; }
-.btn-secondary { background: #6c757d; color: white; flex: 1; padding: 10px; }
+.modal-footer { padding: 16px 20px; background: #f8fafc; display: flex; gap: 8px; }
+.btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-icon { background: transparent; border: none; font-size: 16px; color: var(--text-muted); cursor: pointer; }
+
 .hidden { display: none !important; }
-
-/* Ajuste do campo de busca Leaflet */
-.leaflet-control-geocoder {
-  border-radius: 8px !important;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
-}
