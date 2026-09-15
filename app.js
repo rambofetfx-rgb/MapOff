@@ -1,24 +1,18 @@
-// 1. Inicializa o mapa
-const map = L.map('map').setView([-27.5954, -48.5480], 16);
+// 1. Cria e centraliza o mapa
+const map = L.map('map').setView([-27.5954, -48.5480], 15);
 
-// 2. Configura a camada offline do Leaflet
-const tileLayer = L.tileLayer.offline('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+// 2. Adiciona os blocos do mapa com OpenStreetMap nativo
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
-  attribution: 'OpenStreetMap'
+  attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
-// 3. Controle para salvar as imagens do mapa atual na memória
-const control = L.control.savetiles(tileLayer, {
-  zoomlevels: [14, 15, 16, 17, 18],
-  confirm: function(layer, success) { success(); },
-  confirmText: 'Deseja baixar os blocos desta região para uso offline?'
-});
+// Força o Leaflet a renderizar as imagens na tela inteira do celular
+setTimeout(() => {
+  map.invalidateSize();
+}, 300);
 
-document.getElementById('btn-save').addEventListener('click', () => {
-  control._saveTiles();
-});
-
-// 4. Carrega os pontos de blocos já salvos
+// 3. Recupera pontos já salvos na memória do celular
 let marcadoresSalvos = JSON.parse(localStorage.getItem('blocos_mapeados') || '[]');
 
 function carregarPontosSalvos() {
@@ -31,31 +25,41 @@ function adicionarMarcadorNoMapa(lat, lng, bloco, apt, desc) {
   L.marker([lat, lng])
     .addTo(map)
     .bindPopup(`
-      <div style="font-family: sans-serif;">
-        <h3 style="margin-bottom: 4px;">Bloco ${bloco}</h3>
-        <b>Apt:</b> ${apt}<br>
-        <p style="margin-top: 6px;">${desc}</p>
+      <div style="font-family: sans-serif; min-width: 120px;">
+        <h3 style="margin: 0 0 4px 0; color: #007bff;">Bloco ${bloco}</h3>
+        <b>Apt/Unidade:</b> ${apt || 'N/A'}<br>
+        <p style="margin-top: 6px; font-size: 13px;">${desc || ''}</p>
       </div>
     `);
 }
 
-// 5. Clique no mapa para cadastrar Bloco e Apartamento
+// 4. Mapeia um novo Bloco/Apt ao clicar
 map.on('click', function(e) {
   const { lat, lng } = e.latlng;
 
-  const bloco = prompt("Digite a letra/nome do Bloco (ex: Bloco A):");
+  const bloco = prompt("Digite a letra ou número do Bloco (ex: Bloco A):");
   if (!bloco) return;
 
-  const apt = prompt("Digite o número do Apartamento/Unidade:");
-  const desc = prompt("Descrição adicional:");
+  const apt = prompt("Digite o número do Apartamento:");
+  const desc = prompt("Descrição/Observação adicional:");
 
   const novoPonto = { lat, lng, bloco, apt, desc };
 
-  // Salva no mapa e no armazenamento local do navegador
   adicionarMarcadorNoMapa(lat, lng, bloco, apt, desc);
   marcadoresSalvos.push(novoPonto);
   localStorage.setItem('blocos_mapeados', JSON.stringify(marcadoresSalvos));
 });
 
-// Carrega os dados ao abrir o app
+// 5. Tenta pegar GPS do celular
+if ('geolocation' in navigator) {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      map.setView([latitude, longitude], 17);
+    },
+    (err) => console.log("GPS desligado:", err.message),
+    { enableHighAccuracy: true }
+  );
+}
+
 carregarPontosSalvos();
