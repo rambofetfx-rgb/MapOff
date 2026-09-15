@@ -1,4 +1,3 @@
-// Registra Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Error:', err));
 }
@@ -13,19 +12,33 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 setTimeout(() => map.invalidateSize(), 300);
 
-// 2. Variáveis de Estado Global
+// 2. Estado Global
 let pontosSalvos = JSON.parse(localStorage.getItem('blocos_mapeados') || '[]');
 let posicaoGPS = null;
 let marcadorGPS = null;
 let circuloPrecisao = null;
 let marcadorBusca = null;
 let linhaRota = null;
-let pontoEdicaoId = null;
 let coordsTemp = null;
 
-// 3. Sistema de Geolocalização Contínua (GPS em Tempo Real)
-if ('geolocation' in navigator) {
-  navigator.geolocation.watchPosition(
+// Variáveis para Medição Ponto A -> Ponto B
+let modoMedicao = false;
+let pontoA = null;
+let pontoB = null;
+let marcadorA = null;
+let marcadorB = null;
+let linhaMedicao = null;
+
+// 3. Localização por GPS com Solicitante Explícito
+function obterLocalizacaoUsuario(centralizar = false) {
+  mostrarToast("Buscando sinal de GPS...");
+
+  if (!('geolocation' in navigator)) {
+    mostrarToast("Seu dispositivo não suporta GPS.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude, longitude, accuracy } = pos.coords;
       posicaoGPS = [latitude, longitude];
@@ -50,19 +63,135 @@ if ('geolocation' in navigator) {
           fillOpacity: 0.12,
           weight: 1
         }).addTo(map);
+      }
 
+      if (centralizar) {
         map.setView(posicaoGPS, 17);
       }
 
+      ocultarToast();
       atualizarInterface();
-      if (linhaRota) atualizarDistanciaRota();
     },
-    (err) => console.warn('Aguardando GPS...'),
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    (err) => {
+      mostrarToast("Erro no GPS. Permita a localização nas configurações do celular.");
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
   );
 }
 
-// 4. Busca Unificada (Online e Offline nos Pontos Salvos)
+// Chamar automaticamente ao abrir
+obterLocalizacaoUsuario(true);
+
+document.getElementById('btn-my-location').onclick = () => obterLocalizacaoUsuario(true);
+
+// 4. Medição A ➔ B sem depender exclusivamente de GPS
+const btnMeasure = document.getElementById('btn-measure');
+const measureBanner = document.getElementById('measure-banner');
+const measureInstruction = document.getElementById('measure-instruction');
+
+btnMeasure.onclick = () => {
+  modoMedicao = true;
+  limparMedicao();
+  measureBanner.classList.remove('hidden');
+  measureInstruction.innerHTML = 'Clique no mapa para o <b>Ponto A (Origem)</b>';
+};
+
+document.getElementById('btn-cancel-measure').onclick = resetarModoMedicao;
+
+function resetarModoMedicao() {
+  modoMedicao = false;
+  measureBanner.classList.add('hidden');
+  limparMedicao();
+}
+
+function limparMedicao() {
+  pontoA = null;
+  pontoB = null;
+  if (marcadorA) map.removeLayer(marcadorA);
+  if (marcadorB) map.removeLayer(marcadorB);
+  if (linhaMedicao) map.removeLayer(linhaMedicao);
+}
+
+// Clique no Mapa (Divisão de evento: Medição vs Cadastro)
+map.on('click', (e) => {
+  if (modoMedicao) {
+    tratarCliqueMedicao(e.latlng);
+  } else {
+    abrirModal(e.latlng.lat, e.latlng.lng);
+  }
+});
+
+function tratarCliqueMedicao(latlng) {
+  if (!pontoA) {
+    pontoA = latlng;
+    marcadorA = L.marker(pontoA).addTo(map).bindPopup("<b>Ponto A</b>").openPopup();
+    measureInstruction.innerHTML = 'Agora clique no mapa para o <b>Ponto B (Destino)</b>';
+  } else if (!pontoB) {
+    pontoB = latlng;
+    marcadorB = L.marker(pontoB).addTo(map).bindPopup("<b>Ponto B</b>").openPopup();
+
+    const distM = calcularDistancia(pontoA.lat, pontoA.lng, pontoB.lat, pontoB.lng);
+    const distText = distM >= 1000 ? `${(distM / 1000).toFixed(2)} km` : `${distM} metros`;
+
+    linhaMedicao = L.polyline([pontoA, pontoB], { color: '#f59e0b', weight: 5 }).addTo(map);
+
+    document.getElementById('route-info').classList.remove('hidden');
+    document.getElementById('route-badge').innerText = 'Medição A ➔ B';
+    document.getElementById('route-title').innerText = 'Medição de Distância';
+    document.getElementById('route-distance').innerText = `Distância: ${distText}`;
+
+    map.fitBounds(linhaMedicao.getBounds(), { padding: [40, 40] });
+    resetarModoMedicao();
+  }
+}
+
+// 5. Calculadora de Distância em Metros
+function calcularDistancia(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+// 6. Rota do GPS até um Ponto Cadastrado
+function tracarRota(destLat, destLng, nome) {
+  if (!posicaoGPS) {
+    alert("Seu GPS ainda não respondeu. Use o botão '📏 Medir A ➔ B' para medir sem GPS!");
+    return;
+  }
+
+  if (linhaRota) map.removeLayer(linhaRota);
+
+  linhaRota = L.polyline([posicaoGPS, [destLat, destLng]], {
+    color: '#0066ff',
+    weight: 5,
+    dashArray: '8, 8'
+  }).addTo(map);
+
+  const distM = calcularDistancia(posicaoGPS[0], posicaoGPS[1], destLat, destLng);
+  const distText = distM >= 1000 ? `${(distM / 1000).toFixed(2)} km` : `${distM} metros`;
+
+  document.getElementById('route-info').classList.remove('hidden');
+  document.getElementById('route-badge').innerText = 'Rota Ativa';
+  document.getElementById('route-title').innerText = `Destino: ${nome}`;
+  document.getElementById('route-distance').innerText = `Distância: ${distText}`;
+
+  map.fitBounds(linhaRota.getBounds(), { padding: [40, 40] });
+  fecharPainel();
+}
+
+document.getElementById('btn-limpar-rota').onclick = () => {
+  if (linhaRota) map.removeLayer(linhaRota);
+  limparMedicao();
+  linhaRota = null;
+  document.getElementById('route-info').classList.add('hidden');
+};
+
+// 7. Pesquisa Inteligente
 const searchInput = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
 
@@ -72,7 +201,6 @@ searchInput.addEventListener('input', async () => {
 
   searchResults.innerHTML = '';
 
-  // 4a. Busca em locais salvos (Offline)
   const locaisLocais = pontosSalvos.filter(p => p.bloco.toLowerCase().includes(query) || (p.apt && p.apt.toLowerCase().includes(query)));
   
   locaisLocais.forEach(p => {
@@ -85,7 +213,6 @@ searchInput.addEventListener('input', async () => {
     searchResults.appendChild(li);
   });
 
-  // 4b. Busca via Nominatim (Online)
   if (navigator.onLine && query.length > 3) {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
@@ -127,58 +254,10 @@ function selecionarLocalOnline(item) {
   }, 100);
 }
 
-// 5. Cálculos de Distância e Rotas
-function calcularDistancia(lat1, lon1, lat2, lon2) {
-  const R = 6371e3;
-  const rad = Math.PI / 180;
-  const dLat = (lat2 - lat1) * rad;
-  const dLon = (lon2 - lon1) * rad;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-}
-
-let destinoAtual = null;
-
-function tracarRota(destLat, destLng, nome) {
-  if (!posicaoGPS) return alert("Aguardando sinal do GPS...");
-
-  destinoAtual = { lat: destLat, lng: destLng, nome };
-
-  if (linhaRota) map.removeLayer(linhaRota);
-
-  linhaRota = L.polyline([posicaoGPS, [destLat, destLng]], {
-    color: '#0066ff',
-    weight: 5,
-    dashArray: '8, 8'
-  }).addTo(map);
-
-  document.getElementById('route-info').classList.remove('hidden');
-  document.getElementById('route-title').innerText = `Destino: ${nome}`;
-  atualizarDistanciaRota();
-
-  map.fitBounds(linhaRota.getBounds(), { padding: [40, 40] });
-  fecharPainel();
-}
-
-function atualizarDistanciaRota() {
-  if (!destinoAtual || !posicaoGPS) return;
-  const dist = calcularDistancia(posicaoGPS[0], posicaoGPS[1], destinoAtual.lat, destinoAtual.lng);
-  document.getElementById('route-distance').innerText = `Distância aproximada: ${dist} metros`;
-}
-
-document.getElementById('btn-limpar-rota').onclick = () => {
-  if (linhaRota) map.removeLayer(linhaRota);
-  linhaRota = null;
-  destinoAtual = null;
-  document.getElementById('route-info').classList.add('hidden');
-};
-
-// 6. Gerenciamento de Marcadores e UI
+// 8. Marcadores e UI
 function renderizarMarcadores() {
   map.eachLayer(layer => {
-    if (layer instanceof L.Marker && layer !== marcadorGPS && layer !== marcadorBusca) {
+    if (layer instanceof L.Marker && layer !== marcadorGPS && layer !== marcadorBusca && layer !== marcadorA && layer !== marcadorB) {
       map.removeLayer(layer);
     }
   });
@@ -189,7 +268,7 @@ function renderizarMarcadores() {
       <b style="font-size:14px; color:#0066ff;">${ponto.bloco}</b><br>
       ${ponto.apt ? `Apt: ${ponto.apt}<br>` : ''}
       ${ponto.desc ? `<p style="font-size:11px; color:#666; margin:4px 0;">${ponto.desc}</p>` : ''}
-      <button onclick="tracarRota(${ponto.lat}, ${ponto.lng}, '${ponto.bloco}')" style="width:100%; margin-top:6px; background:#0066ff; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">🗺️ Traçar Rota</button>
+      <button onclick="tracarRota(${ponto.lat}, ${ponto.lng}, '${ponto.bloco}')" style="width:100%; margin-top:6px; background:#0066ff; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">🗺️ Traçar Rota do GPS</button>
     `);
   });
 
@@ -227,27 +306,21 @@ function focarPonto(lat, lng) {
   fecharPainel();
 }
 
-// 7. Modal de Cadastro / Edição
+// Modal
 const modal = document.getElementById('modal-container');
-
-map.on('click', (e) => abrirModal(e.latlng.lat, e.latlng.lng));
 
 function abrirModal(lat, lng, nomeSugestao = '') {
   coordsTemp = { lat, lng };
-  pontoEdicaoId = null;
-
   document.getElementById('modal-title').innerText = "Cadastrar Local";
   document.getElementById('input-bloco').value = nomeSugestao;
   document.getElementById('input-apt').value = '';
   document.getElementById('input-desc').value = '';
-  document.getElementById('btn-excluir').classList.add('hidden');
-
   modal.classList.remove('hidden');
 }
 
 document.getElementById('btn-salvar').onclick = () => {
   const bloco = document.getElementById('input-bloco').value.trim();
-  if (!bloco) return alert("Informe ao menos o nome ou bloco!");
+  if (!bloco) return alert("Informe a identificação do local!");
 
   pontosSalvos.push({
     id: Date.now(),
@@ -268,21 +341,18 @@ document.getElementById('btn-salvar').onclick = () => {
 
 document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
 
-// 8. Drawer Lateral
+// Drawer Lateral
 const panel = document.getElementById('side-panel');
 document.getElementById('btn-toggle-panel').onclick = () => panel.classList.remove('panel-hidden');
 document.getElementById('btn-close-panel').onclick = fecharPainel;
 function fecharPainel() { panel.classList.add('panel-hidden'); }
 
-// 9. Modulo de Download Offline
+// Download Offline
 document.getElementById('btn-download-area').onclick = async () => {
   const bounds = map.getBounds();
   const zoom = map.getZoom();
-  const toast = document.getElementById('download-toast');
-  const status = document.getElementById('download-status');
 
-  toast.classList.remove('hidden');
-  status.innerText = "Iniciando download...";
+  mostrarToast("Iniciando download offline...");
 
   let urls = [];
   for (let z = Math.max(zoom - 1, 14); z <= Math.min(zoom + 2, 18); z++) {
@@ -303,12 +373,12 @@ document.getElementById('btn-download-area').onclick = async () => {
     try {
       await cache.add(url);
       baixados++;
-      status.innerText = `Baixando área: ${Math.round((baixados / urls.length) * 100)}%`;
+      mostrarToast(`Baixando mapa: ${Math.round((baixados / urls.length) * 100)}%`);
     } catch (e) {}
   }
 
-  status.innerText = "Área salva offline! ✅";
-  setTimeout(() => toast.classList.add('hidden'), 3000);
+  mostrarToast("Área baixada com sucesso! ✅");
+  setTimeout(ocultarToast, 3000);
 };
 
 function latLngToTile(lat, lng, zoom) {
@@ -320,6 +390,16 @@ function latLngToTile(lat, lng, zoom) {
   };
 }
 
-// Inicializar Dados
+function mostrarToast(msg) {
+  const toast = document.getElementById('download-toast');
+  document.getElementById('toast-status').innerText = msg;
+  toast.classList.remove('hidden');
+}
+
+function ocultarToast() {
+  document.getElementById('download-toast').classList.add('hidden');
+}
+
+// Inicializar
 renderizarMarcadores();
 atualizarInterface();
