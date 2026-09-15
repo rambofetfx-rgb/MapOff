@@ -29,7 +29,7 @@ let marcadorA = null;
 let marcadorB = null;
 let linhaMedicao = null;
 
-// 3. Localização por GPS com Solicitante Explícito
+// 3. Localização por GPS tratada com Fallback
 function obterLocalizacaoUsuario(centralizar = false) {
   mostrarToast("Buscando sinal de GPS...");
 
@@ -38,45 +38,73 @@ function obterLocalizacaoUsuario(centralizar = false) {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const { latitude, longitude, accuracy } = pos.coords;
-      posicaoGPS = [latitude, longitude];
+  // Opções primárias (Alta precisão por satélite)
+  const optionsHighAccuracy = {
+    enableHighAccuracy: true,
+    timeout: 8000,
+    maximumAge: 0
+  };
 
-      if (marcadorGPS) {
-        marcadorGPS.setLatLng(posicaoGPS);
-        circuloPrecisao.setLatLng(posicaoGPS).setRadius(accuracy);
-      } else {
-        marcadorGPS = L.marker(posicaoGPS, {
-          icon: L.divIcon({
-            className: 'user-marker',
-            html: '<div style="background:#0066ff; width:18px; height:18px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3);"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-          })
-        }).addTo(map);
+  // Opções de fallback (Rede / Wi-Fi / Torres celulares)
+  const optionsLowAccuracy = {
+    enableHighAccuracy: false,
+    timeout: 10000,
+    maximumAge: 30000
+  };
 
-        circuloPrecisao = L.circle(posicaoGPS, {
-          radius: accuracy,
-          color: '#0066ff',
-          fillColor: '#0066ff',
-          fillOpacity: 0.12,
-          weight: 1
-        }).addTo(map);
-      }
+  function sucesso(pos) {
+    const { latitude, longitude, accuracy } = pos.coords;
+    posicaoGPS = [latitude, longitude];
 
-      if (centralizar) {
-        map.setView(posicaoGPS, 17);
-      }
+    if (marcadorGPS) {
+      marcadorGPS.setLatLng(posicaoGPS);
+      circuloPrecisao.setLatLng(posicaoGPS).setRadius(accuracy);
+    } else {
+      marcadorGPS = L.marker(posicaoGPS, {
+        icon: L.divIcon({
+          className: 'user-marker',
+          html: '<div style="background:#0066ff; width:18px; height:18px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3);"></div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        })
+      }).addTo(map);
 
-      ocultarToast();
-      atualizarInterface();
-    },
-    (err) => {
-      mostrarToast("Erro no GPS. Permita a localização nas configurações do celular.");
-    },
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-  );
+      circuloPrecisao = L.circle(posicaoGPS, {
+        radius: accuracy,
+        color: '#0066ff',
+        fillColor: '#0066ff',
+        fillOpacity: 0.12,
+        weight: 1
+      }).addTo(map);
+    }
+
+    if (centralizar) {
+      map.setView(posicaoGPS, 17);
+    }
+
+    ocultarToast();
+    atualizarInterface();
+  }
+
+  function falha(err) {
+    if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+      mostrarToast("Tentando conexão aproximada (Wi-Fi/Rede)...");
+      navigator.geolocation.getCurrentPosition(sucesso, erroFinal, optionsLowAccuracy);
+    } else {
+      erroFinal(err);
+    }
+  }
+
+  function erroFinal(err) {
+    if (err.code === err.PERMISSION_DENIED) {
+      mostrarToast("Permissão negada. Ative a localização nas configurações do app.");
+    } else {
+      mostrarToast("Sinal de GPS indisponível no momento.");
+    }
+    setTimeout(ocultarToast, 4000);
+  }
+
+  navigator.geolocation.getCurrentPosition(sucesso, falha, optionsHighAccuracy);
 }
 
 // Chamar automaticamente ao abrir
@@ -84,7 +112,7 @@ obterLocalizacaoUsuario(true);
 
 document.getElementById('btn-my-location').onclick = () => obterLocalizacaoUsuario(true);
 
-// 4. Medição A ➔ B sem depender exclusivamente de GPS
+// 4. Medição A ➔ B sem depender do GPS
 const btnMeasure = document.getElementById('btn-measure');
 const measureBanner = document.getElementById('measure-banner');
 const measureInstruction = document.getElementById('measure-instruction');
@@ -112,7 +140,7 @@ function limparMedicao() {
   if (linhaMedicao) map.removeLayer(linhaMedicao);
 }
 
-// Clique no Mapa (Divisão de evento: Medição vs Cadastro)
+// Clique no Mapa (Alterna entre Medição e Cadastro)
 map.on('click', (e) => {
   if (modoMedicao) {
     tratarCliqueMedicao(e.latlng);
@@ -145,7 +173,7 @@ function tratarCliqueMedicao(latlng) {
   }
 }
 
-// 5. Calculadora de Distância em Metros
+// 5. Calculadora de Distância (Metros/Km)
 function calcularDistancia(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const rad = Math.PI / 180;
@@ -157,7 +185,7 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-// 6. Rota do GPS até um Ponto Cadastrado
+// 6. Rota do GPS até Ponto Cadastrado
 function tracarRota(destLat, destLng, nome) {
   if (!posicaoGPS) {
     alert("Seu GPS ainda não respondeu. Use o botão '📏 Medir A ➔ B' para medir sem GPS!");
