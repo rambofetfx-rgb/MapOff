@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mapeador Offline de Blocos</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Controles para o modo offline -->
+  <div id="controls">
+    <button id="btn-save">Baixar Mapa da Área</button>
+    <span id="status">Online</span>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Leaflet + Leaflet.Offline -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.offline@2.2.0/dist/leaflet.offline.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
