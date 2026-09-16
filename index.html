@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>MapOff - Navegação & Mapeamento</title>
+  <title>MapOff - Mapeamento & Navegação Offline</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css">
@@ -24,8 +24,17 @@
     <button id="btn-my-location" class="fab-btn location-btn">
       <span>🎯</span> Minha Posição
     </button>
+    <button id="btn-draw-path" class="fab-btn path-btn">
+      <span>🛣️</span> Desenhar Alameda
+    </button>
     <button id="btn-add-text-mode" class="fab-btn text-btn">
       <span>✏️</span> Escrever Texto
+    </button>
+    <button id="btn-toggle-pins" class="fab-btn toggle-btn">
+      <span id="icon-pins">📍</span> <span id="text-pins">Ocultar Pontos</span>
+    </button>
+    <button id="btn-toggle-texts" class="fab-btn toggle-btn">
+      <span id="icon-texts">🏷️</span> <span id="text-texts">Ocultar Textos</span>
     </button>
     <button id="btn-measure" class="fab-btn warning-btn">
       <span>📏</span> Medir A ➔ B
@@ -39,6 +48,12 @@
   </div>
 
   <!-- Banners de Modos de Ação -->
+  <div id="path-banner" class="measure-banner hidden" style="background: #0284c7;">
+    <span id="path-instruction">Clique no mapa para criar nós do caminho do condomínio</span>
+    <button id="btn-finish-path" class="btn-sm-success">Concluir</button>
+    <button id="btn-cancel-path" class="btn-sm-danger">Cancelar</button>
+  </div>
+
   <div id="measure-banner" class="measure-banner hidden">
     <span id="measure-instruction">Clique no mapa para escolher o <b>Ponto A (Origem)</b></span>
     <button id="btn-cancel-measure" class="btn-sm-danger">Cancelar</button>
@@ -81,10 +96,16 @@
       </div>
 
       <ul id="lista-pontos" class="item-list"></ul>
+
+      <div class="section-title" style="margin-top: 20px;">
+        <h3>Alamedas Privadas</h3>
+        <button id="btn-clear-paths" class="btn-link" style="font-size:11px;">Limpar Alamedas</button>
+      </div>
+      <p style="font-size: 11px; color: #64748b;">Desenhe caminhos no condomínio para que o GPS contorne os blocos sem passar por cima do telhado.</p>
     </div>
   </aside>
 
-  <!-- Modal de Cadastro (Pontos ou Textos) -->
+  <!-- Modal de Cadastro -->
   <div id="modal-container" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-header">
