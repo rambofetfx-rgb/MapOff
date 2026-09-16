@@ -13,7 +13,7 @@
   <!-- Barra Superior de Busca Inteligente -->
   <div id="search-box">
     <div class="search-input-group">
-      <input type="text" id="search-input" placeholder="Buscar endereço ou bloco..." autocomplete="off">
+      <input type="text" id="search-input" placeholder="Buscar endereço, bloco ou texto..." autocomplete="off">
       <button id="btn-search" aria-label="Buscar">🔍</button>
     </div>
     <ul id="search-results" class="dropdown-list hidden"></ul>
@@ -23,6 +23,9 @@
   <div id="fab-actions">
     <button id="btn-my-location" class="fab-btn location-btn">
       <span>🎯</span> Minha Posição
+    </button>
+    <button id="btn-add-text-mode" class="fab-btn text-btn">
+      <span>✏️</span> Escrever Texto
     </button>
     <button id="btn-measure" class="fab-btn warning-btn">
       <span>📏</span> Medir A ➔ B
@@ -35,10 +38,15 @@
     </button>
   </div>
 
-  <!-- Indicador de Medição / Modo A ➔ B -->
+  <!-- Banners de Modos de Ação -->
   <div id="measure-banner" class="measure-banner hidden">
     <span id="measure-instruction">Clique no mapa para escolher o <b>Ponto A (Origem)</b></span>
     <button id="btn-cancel-measure" class="btn-sm-danger">Cancelar</button>
+  </div>
+
+  <div id="text-mode-banner" class="measure-banner hidden" style="background: #8b5cf6;">
+    <span>Clique no local do mapa onde deseja <b>Escrever o Texto</b></span>
+    <button id="btn-cancel-text-mode" class="btn-sm-danger">Cancelar</button>
   </div>
 
   <!-- Toast de Mensagens -->
@@ -52,12 +60,12 @@
   <!-- Drawer Lateral (Painel de Rotas e Locais) -->
   <aside id="side-panel" class="panel-hidden">
     <div class="panel-header">
-      <h2>Pontos & Rotas</h2>
+      <h2>Pontos & Rótulos</h2>
       <button id="btn-close-panel" class="btn-icon">✕</button>
     </div>
     
     <div class="panel-body">
-      <!-- Card de Rota ou Medição Ativa -->
+      <!-- Card de Rota / Medição -->
       <div id="route-info" class="card route-card hidden">
         <div class="card-header">
           <span id="route-badge" class="badge">Rota Ativa</span>
@@ -68,7 +76,7 @@
       </div>
 
       <div class="section-title">
-        <h3>Locais Salvos</h3>
+        <h3>Locais & Rótulos Salvos</h3>
         <span id="ponto-count" class="counter">0</span>
       </div>
 
@@ -76,7 +84,7 @@
     </div>
   </aside>
 
-  <!-- Modal / Dialog de Cadastro -->
+  <!-- Modal de Cadastro (Pontos ou Textos) -->
   <div id="modal-container" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -85,25 +93,24 @@
       </div>
 
       <div class="modal-body">
-        <div class="form-group">
-          <label for="input-bloco">Identificação / Bloco *</label>
-          <input type="text" id="input-bloco" placeholder="Ex: Bloco B ou Entrada Principal">
+        <div class="form-group" id="group-bloco">
+          <label for="input-bloco" id="label-bloco">Identificação / Bloco *</label>
+          <input type="text" id="input-bloco" placeholder="Ex: Bloco B ou Portaria">
         </div>
 
-        <div class="form-group">
+        <div class="form-group" id="group-apt">
           <label for="input-apt">Apartamento / Unidade</label>
           <input type="text" id="input-apt" placeholder="Ex: Apt 302 (Opcional)">
         </div>
 
-        <div class="form-group">
+        <div class="form-group" id="group-desc">
           <label for="input-desc">Observação / Ponto de Referência</label>
           <textarea id="input-desc" rows="3" placeholder="Ex: Portão azul, fundos, etc."></textarea>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button id="btn-salvar" class="btn btn-primary">Salvar Local</button>
-        <button id="btn-excluir" class="btn btn-danger hidden">Excluir</button>
+        <button id="btn-salvar" class="btn btn-primary">Salvar</button>
       </div>
     </div>
   </div>
