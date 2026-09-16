@@ -40,18 +40,15 @@ jobs:
           npx cap add android
           npx cap copy android
 
-          # 4. Injeta permissões de GPS, Câmera e Arquivos no AndroidManifest.xml
+          # 4. Injeta permissões diretamente no AndroidManifest.xml
           MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
-          
-          PERMISSIONS="
-              <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" \/>\n\
-              <uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" \/>\n\
-              <uses-permission android:name=\"android.permission.CAMERA\" \/>\n\
-              <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" \/>\n\
-              <uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" \/>\n\
-              <uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" \/>"
 
-          sed -i "/<\/manifest>/i $PERMISSIONS" $MANIFEST_FILE
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' $MANIFEST_FILE
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' $MANIFEST_FILE
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.CAMERA" />' $MANIFEST_FILE
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST_FILE
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST_FILE
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />' $MANIFEST_FILE
 
           # 5. Compila o APK do Android
           cd android
