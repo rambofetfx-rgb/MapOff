@@ -20,8 +20,9 @@ let circuloPrecisao = null;
 let marcadorBusca = null;
 let linhaRota = null;
 let coordsTemp = null;
+let tipoCadastro = 'ponto'; // 'ponto' ou 'texto'
 
-// Variáveis para Medição Ponto A -> Ponto B
+// Medição Ponto A -> Ponto B
 let modoMedicao = false;
 let pontoA = null;
 let pontoB = null;
@@ -29,7 +30,10 @@ let marcadorA = null;
 let marcadorB = null;
 let linhaMedicao = null;
 
-// 3. Localização por GPS tratada com Fallback
+// Modo de Inserção de Texto no Mapa
+let modoTexto = false;
+
+// 3. Localização por GPS
 function obterLocalizacaoUsuario(centralizar = false) {
   mostrarToast("Buscando sinal de GPS...");
 
@@ -38,19 +42,8 @@ function obterLocalizacaoUsuario(centralizar = false) {
     return;
   }
 
-  // Opções primárias (Alta precisão por satélite)
-  const optionsHighAccuracy = {
-    enableHighAccuracy: true,
-    timeout: 8000,
-    maximumAge: 0
-  };
-
-  // Opções de fallback (Rede / Wi-Fi / Torres celulares)
-  const optionsLowAccuracy = {
-    enableHighAccuracy: false,
-    timeout: 10000,
-    maximumAge: 30000
-  };
+  const optionsHighAccuracy = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
+  const optionsLowAccuracy = { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 };
 
   function sucesso(pos) {
     const { latitude, longitude, accuracy } = pos.coords;
@@ -78,17 +71,13 @@ function obterLocalizacaoUsuario(centralizar = false) {
       }).addTo(map);
     }
 
-    if (centralizar) {
-      map.setView(posicaoGPS, 17);
-    }
-
+    if (centralizar) map.setView(posicaoGPS, 17);
     ocultarToast();
     atualizarInterface();
   }
 
   function falha(err) {
     if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
-      mostrarToast("Tentando conexão aproximada (Wi-Fi/Rede)...");
       navigator.geolocation.getCurrentPosition(sucesso, erroFinal, optionsLowAccuracy);
     } else {
       erroFinal(err);
@@ -96,28 +85,23 @@ function obterLocalizacaoUsuario(centralizar = false) {
   }
 
   function erroFinal(err) {
-    if (err.code === err.PERMISSION_DENIED) {
-      mostrarToast("Permissão negada. Ative a localização nas configurações do app.");
-    } else {
-      mostrarToast("Sinal de GPS indisponível no momento.");
-    }
+    mostrarToast("GPS indisponível. Você pode navegar e medir manualmente!");
     setTimeout(ocultarToast, 4000);
   }
 
   navigator.geolocation.getCurrentPosition(sucesso, falha, optionsHighAccuracy);
 }
 
-// Chamar automaticamente ao abrir
 obterLocalizacaoUsuario(true);
-
 document.getElementById('btn-my-location').onclick = () => obterLocalizacaoUsuario(true);
 
-// 4. Medição A ➔ B sem depender do GPS
+// 4. Medição Ponto A ➔ Ponto B
 const btnMeasure = document.getElementById('btn-measure');
 const measureBanner = document.getElementById('measure-banner');
 const measureInstruction = document.getElementById('measure-instruction');
 
 btnMeasure.onclick = () => {
+  resetarModoTexto();
   modoMedicao = true;
   limparMedicao();
   measureBanner.classList.remove('hidden');
@@ -140,12 +124,32 @@ function limparMedicao() {
   if (linhaMedicao) map.removeLayer(linhaMedicao);
 }
 
-// Clique no Mapa (Alterna entre Medição e Cadastro)
+// 5. Modo de Escrever Texto no Mapa
+const btnAddText = document.getElementById('btn-add-text-mode');
+const textModeBanner = document.getElementById('text-mode-banner');
+
+btnAddText.onclick = () => {
+  resetarModoMedicao();
+  modoTexto = true;
+  textModeBanner.classList.remove('hidden');
+};
+
+document.getElementById('btn-cancel-text-mode').onclick = resetarModoTexto;
+
+function resetarModoTexto() {
+  modoTexto = false;
+  textModeBanner.classList.add('hidden');
+}
+
+// 6. Clique Geral no Mapa
 map.on('click', (e) => {
   if (modoMedicao) {
     tratarCliqueMedicao(e.latlng);
+  } else if (modoTexto) {
+    resetarModoTexto();
+    abrirModal(e.latlng.lat, e.latlng.lng, '', 'texto');
   } else {
-    abrirModal(e.latlng.lat, e.latlng.lng);
+    abrirModal(e.latlng.lat, e.latlng.lng, '', 'ponto');
   }
 });
 
@@ -153,7 +157,7 @@ function tratarCliqueMedicao(latlng) {
   if (!pontoA) {
     pontoA = latlng;
     marcadorA = L.marker(pontoA).addTo(map).bindPopup("<b>Ponto A</b>").openPopup();
-    measureInstruction.innerHTML = 'Agora clique no mapa para o <b>Ponto B (Destino)</b>';
+    measureInstruction.innerHTML = 'Agora clique para o <b>Ponto B (Destino)</b>';
   } else if (!pontoB) {
     pontoB = latlng;
     marcadorB = L.marker(pontoB).addTo(map).bindPopup("<b>Ponto B</b>").openPopup();
@@ -173,7 +177,7 @@ function tratarCliqueMedicao(latlng) {
   }
 }
 
-// 5. Calculadora de Distância (Metros/Km)
+// 7. Calculadora de Distância
 function calcularDistancia(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const rad = Math.PI / 180;
@@ -185,14 +189,14 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-// 6. Rota do GPS até Ponto Cadastrado
+// 8. Traçar Rota do GPS até Ponto
 function tracarRota(destLat, destLng, nome) {
   if (!posicaoGPS) {
     alert("Seu GPS ainda não respondeu. Use o botão '📏 Medir A ➔ B' para medir sem GPS!");
     return;
   }
 
-  if (linhaRota) map.removeLayer(linhaRota);
+  limparRotasELinhas();
 
   linhaRota = L.polyline([posicaoGPS, [destLat, destLng]], {
     color: '#0066ff',
@@ -212,14 +216,15 @@ function tracarRota(destLat, destLng, nome) {
   fecharPainel();
 }
 
-document.getElementById('btn-limpar-rota').onclick = () => {
-  if (linhaRota) map.removeLayer(linhaRota);
+function limparRotasELinhas() {
+  if (linhaRota) { map.removeLayer(linhaRota); linhaRota = null; }
   limparMedicao();
-  linhaRota = null;
   document.getElementById('route-info').classList.add('hidden');
-};
+}
 
-// 7. Pesquisa Inteligente
+document.getElementById('btn-limpar-rota').onclick = limparRotasELinhas;
+
+// 9. Pesquisa
 const searchInput = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
 
@@ -233,7 +238,7 @@ searchInput.addEventListener('input', async () => {
   
   locaisLocais.forEach(p => {
     const li = document.createElement('li');
-    li.innerHTML = `📌 <b>${p.bloco}</b> ${p.apt ? `- Apt ${p.apt}` : ''} <span style="font-size:10px; color:#10b981;">(Salvo)</span>`;
+    li.innerHTML = `${p.tipo === 'texto' ? '✏️' : '📌'} <b>${p.bloco}</b> ${p.apt ? `- Apt ${p.apt}` : ''} <span style="font-size:10px; color:#10b981;">(Salvo)</span>`;
     li.onclick = () => {
       map.setView([p.lat, p.lng], 18);
       searchResults.classList.add('hidden');
@@ -278,11 +283,11 @@ function selecionarLocalOnline(item) {
 
   setTimeout(() => {
     const btn = document.getElementById('btn-salvar-busca');
-    if (btn) btn.onclick = () => abrirModal(lat, lon, item.display_name.split(',')[0]);
+    if (btn) btn.onclick = () => abrirModal(lat, lon, item.display_name.split(',')[0], 'ponto');
   }, 100);
 }
 
-// 8. Marcadores e UI
+// 10. Renderização dos Marcadores e Rótulos no Mapa
 function renderizarMarcadores() {
   map.eachLayer(layer => {
     if (layer instanceof L.Marker && layer !== marcadorGPS && layer !== marcadorBusca && layer !== marcadorA && layer !== marcadorB) {
@@ -291,16 +296,49 @@ function renderizarMarcadores() {
   });
 
   pontosSalvos.forEach(ponto => {
-    const marker = L.marker([ponto.lat, ponto.lng]).addTo(map);
-    marker.bindPopup(`
-      <b style="font-size:14px; color:#0066ff;">${ponto.bloco}</b><br>
-      ${ponto.apt ? `Apt: ${ponto.apt}<br>` : ''}
-      ${ponto.desc ? `<p style="font-size:11px; color:#666; margin:4px 0;">${ponto.desc}</p>` : ''}
-      <button onclick="tracarRota(${ponto.lat}, ${ponto.lng}, '${ponto.bloco}')" style="width:100%; margin-top:6px; background:#0066ff; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">🗺️ Traçar Rota do GPS</button>
-    `);
+    let layer;
+
+    if (ponto.tipo === 'texto') {
+      // Rótulo Transparente de Texto Fixo no Mapa
+      layer = L.marker([ponto.lat, ponto.lng], {
+        icon: L.divIcon({
+          className: 'custom-map-label',
+          html: `<div class="map-text-badge">✏️ ${ponto.bloco}</div>`,
+          iconAnchor: [30, 15]
+        })
+      }).addTo(map);
+
+      layer.bindPopup(`
+        <b style="font-size:14px; color:#8b5cf6;">Rótulo: ${ponto.bloco}</b><br>
+        <button onclick="excluirPonto(${ponto.id})" style="width:100%; margin-top:6px; background:#ef4444; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">🗑️ Excluir Texto</button>
+      `);
+
+    } else {
+      // Marcador de Ponto Tradicional
+      layer = L.marker([ponto.lat, ponto.lng]).addTo(map);
+      layer.bindPopup(`
+        <b style="font-size:14px; color:#0066ff;">${ponto.bloco}</b><br>
+        ${ponto.apt ? `Apt: ${ponto.apt}<br>` : ''}
+        ${ponto.desc ? `<p style="font-size:11px; color:#666; margin:4px 0;">${ponto.desc}</p>` : ''}
+        <button onclick="tracarRota(${ponto.lat}, ${ponto.lng}, '${ponto.bloco}')" style="width:100%; margin-top:6px; background:#0066ff; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">🗺️ Traçar Rota do GPS</button>
+        <button onclick="excluirPonto(${ponto.id})" style="width:100%; margin-top:4px; background:#ef4444; color:white; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;">🗑️ Excluir Ponto</button>
+      `);
+    }
+
+    // Impede que o clique no ponto ative o clique de fundo do mapa
+    layer.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+    });
   });
 
   document.getElementById('ponto-count').innerText = pontosSalvos.length;
+}
+
+function excluirPonto(id) {
+  pontosSalvos = pontosSalvos.filter(p => p.id !== id);
+  localStorage.setItem('blocos_mapeados', JSON.stringify(pontosSalvos));
+  renderizarMarcadores();
+  atualizarInterface();
 }
 
 function atualizarInterface() {
@@ -312,17 +350,18 @@ function atualizarInterface() {
     dist: posicaoGPS ? calcularDistancia(posicaoGPS[0], posicaoGPS[1], p.lat, p.lng) : null
   }));
 
-  if (posicaoGPS) listaComDist.sort((a, b) => a.dist - b.dist);
+  if (posicaoGPS) listaComDist.sort((a, b) => (a.dist ?? 999999) - (b.dist ?? 999999));
 
   listaComDist.forEach(p => {
     const li = document.createElement('li');
     li.innerHTML = `
-      <div class="ponto-title">${p.bloco} ${p.apt ? `- Apt ${p.apt}` : ''}</div>
+      <div class="ponto-title">${p.tipo === 'texto' ? '✏️ [Texto]' : '📌'} ${p.bloco} ${p.apt ? `- Apt ${p.apt}` : ''}</div>
       <div class="ponto-dist">${p.dist !== null ? `📍 A ${p.dist}m de você` : 'Sem GPS'}</div>
       ${p.desc ? `<div class="ponto-desc">${p.desc}</div>` : ''}
       <div class="item-actions">
-        <button class="btn btn-primary" style="padding:6px; font-size:12px;" onclick="tracarRota(${p.lat}, ${p.lng}, '${p.bloco}')">Ir Até</button>
+        ${p.tipo !== 'texto' ? `<button class="btn btn-primary" style="padding:6px; font-size:12px;" onclick="tracarRota(${p.lat}, ${p.lng}, '${p.bloco}')">Ir Até</button>` : ''}
         <button class="btn" style="background:#e2e8f0; padding:6px; font-size:12px;" onclick="focarPonto(${p.lat}, ${p.lng})">Ver</button>
+        <button class="btn btn-danger" style="padding:6px; font-size:12px;" onclick="excluirPonto(${p.id})">Excluir</button>
       </div>
     `;
     listaEl.appendChild(li);
@@ -334,12 +373,31 @@ function focarPonto(lat, lng) {
   fecharPainel();
 }
 
-// Modal
+// 11. Modal de Criação
 const modal = document.getElementById('modal-container');
 
-function abrirModal(lat, lng, nomeSugestao = '') {
+function abrirModal(lat, lng, nomeSugestao = '', tipo = 'ponto') {
   coordsTemp = { lat, lng };
-  document.getElementById('modal-title').innerText = "Cadastrar Local";
+  tipoCadastro = tipo;
+
+  const groupApt = document.getElementById('group-apt');
+  const groupDesc = document.getElementById('group-desc');
+  const labelBloco = document.getElementById('label-bloco');
+
+  if (tipo === 'texto') {
+    document.getElementById('modal-title').innerText = "Escrever Texto no Mapa";
+    labelBloco.innerText = "Texto / Nome do Bloco *";
+    document.getElementById('input-bloco').placeholder = "Ex: Bloco A, Quadra 04, Salão de Festas";
+    groupApt.classList.add('hidden');
+    groupDesc.classList.add('hidden');
+  } else {
+    document.getElementById('modal-title').innerText = "Cadastrar Ponto";
+    labelBloco.innerText = "Identificação / Bloco *";
+    document.getElementById('input-bloco').placeholder = "Ex: Bloco B ou Entrada Principal";
+    groupApt.classList.remove('hidden');
+    groupDesc.classList.remove('hidden');
+  }
+
   document.getElementById('input-bloco').value = nomeSugestao;
   document.getElementById('input-apt').value = '';
   document.getElementById('input-desc').value = '';
@@ -348,15 +406,16 @@ function abrirModal(lat, lng, nomeSugestao = '') {
 
 document.getElementById('btn-salvar').onclick = () => {
   const bloco = document.getElementById('input-bloco').value.trim();
-  if (!bloco) return alert("Informe a identificação do local!");
+  if (!bloco) return alert("Informe o texto/identificação!");
 
   pontosSalvos.push({
     id: Date.now(),
     lat: coordsTemp.lat,
     lng: coordsTemp.lng,
+    tipo: tipoCadastro,
     bloco,
-    apt: document.getElementById('input-apt').value.trim(),
-    desc: document.getElementById('input-desc').value.trim()
+    apt: tipoCadastro === 'ponto' ? document.getElementById('input-apt').value.trim() : '',
+    desc: tipoCadastro === 'ponto' ? document.getElementById('input-desc').value.trim() : ''
   });
 
   localStorage.setItem('blocos_mapeados', JSON.stringify(pontosSalvos));
@@ -428,6 +487,6 @@ function ocultarToast() {
   document.getElementById('download-toast').classList.add('hidden');
 }
 
-// Inicializar
+// Inicialização
 renderizarMarcadores();
 atualizarInterface();
