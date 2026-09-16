@@ -4,6 +4,7 @@
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
+  --purple: #8b5cf6;
   --surface: #ffffff;
   --text: #1e293b;
   --text-muted: #64748b;
@@ -31,6 +32,27 @@ body, html {
   width: 100vw;
   height: 100vh;
   z-index: 1;
+}
+
+/* Rótulos de Texto Personalizados no Mapa */
+.custom-map-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.map-text-badge {
+  background: rgba(15, 23, 42, 0.85);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  white-space: nowrap;
+  display: inline-block;
+  backdrop-filter: blur(2px);
 }
 
 /* Barra de Busca */
@@ -90,7 +112,7 @@ body, html {
 
 .dropdown-list li:hover { background: #f1f5f9; }
 
-/* Banner de Medição A -> B */
+/* Banners */
 .measure-banner {
   position: absolute;
   top: 70px;
@@ -120,12 +142,11 @@ body, html {
   cursor: pointer;
 }
 
-/* Controles Leaflet Zoom */
 .leaflet-top.leaflet-left {
   top: 70px !important;
 }
 
-/* Botões Flutuantes (FABs) */
+/* FABs */
 #fab-actions {
   position: absolute;
   bottom: 24px;
@@ -154,6 +175,7 @@ body, html {
 .fab-btn.primary { background: var(--primary); }
 .fab-btn.success { background: var(--success); }
 .fab-btn.warning-btn { background: var(--warning); }
+.fab-btn.text-btn { background: var(--purple); }
 .fab-btn.location-btn { background: #0f172a; }
 
 /* Toast */
@@ -174,7 +196,7 @@ body, html {
   max-width: 80vw;
 }
 
-/* Drawer Lateral */
+/* Drawer */
 #side-panel {
   position: fixed;
   top: 0; left: 0;
