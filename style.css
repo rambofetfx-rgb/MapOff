@@ -5,11 +5,12 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --purple: #8b5cf6;
+  --sky: #0284c7;
   --surface: #ffffff;
   --text: #1e293b;
   --text-muted: #64748b;
   --border: #e2e8f0;
-  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --radius: 12px;
 }
 
@@ -34,7 +35,7 @@ body, html {
   z-index: 1;
 }
 
-/* Rótulos de Texto Personalizados no Mapa */
+/* Placa de Texto Leve sem Blur para Celulares */
 .custom-map-label {
   background: transparent !important;
   border: none !important;
@@ -42,17 +43,16 @@ body, html {
 }
 
 .map-text-badge {
-  background: rgba(15, 23, 42, 0.85);
+  background: #0f172a;
   color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  border: 1px solid #ffffff;
   white-space: nowrap;
   display: inline-block;
-  backdrop-filter: blur(2px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 /* Barra de Busca */
@@ -126,13 +126,24 @@ body, html {
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   box-shadow: var(--shadow);
   white-space: nowrap;
 }
 
 .btn-sm-danger {
   background: var(--danger);
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-sm-success {
+  background: var(--success);
   color: white;
   border: none;
   padding: 4px 10px;
@@ -176,6 +187,8 @@ body, html {
 .fab-btn.success { background: var(--success); }
 .fab-btn.warning-btn { background: var(--warning); }
 .fab-btn.text-btn { background: var(--purple); }
+.fab-btn.path-btn { background: var(--sky); }
+.fab-btn.toggle-btn { background: #334155; }
 .fab-btn.location-btn { background: #0f172a; }
 
 /* Toast */
@@ -263,7 +276,6 @@ body, html {
   top: 0; left: 0;
   width: 100vw; height: 100vh;
   background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
   z-index: 3000;
   display: flex;
   justify-content: center;
